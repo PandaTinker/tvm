@@ -113,6 +113,7 @@ class ComputationsDoneBy : public StmtExprVisitor {
   ComputationTable table_of_computations_;
   // Cache for preventing to compute repeatedly the computations done by the same stmt or expr
   static ComputationCache cache_;
+  static std::mutex cache_mutex_;
 };
 
 /*!

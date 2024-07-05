@@ -36,7 +36,8 @@
 #include <tvm/tir/stmt_functor.h>
 #include <tvm/tir/transform.h>  // For the declaration of the pass
 
-#include <algorithm>      // For std::find_if
+#include <algorithm>  // For std::find_if
+#include <mutex>
 #include <unordered_map>  // For the hashtable datatype
 #include <utility>
 #include <vector>
@@ -49,6 +50,7 @@ namespace tir {
 // cache_ is a static variable of the class ComputationsDoneBy, and C++ requires to define here
 // such static attribute, otherwise it causes a linking error.
 ComputationCache ComputationsDoneBy::cache_;
+std::mutex ComputationsDoneBy::cache_mutex_;
 
 /* ********************************** Class ComputationsDoneBy **********************************
 *********************************************************************************************** */
@@ -288,6 +290,7 @@ ComputationTable ComputationsDoneBy::GetComputationsDoneBy(
   computations_done_by.VisitExpr(expr);
   // Copy the `table_of_computations_` (that `computations_done_by` has computed) into the cache
   // for the future queries
+  std::lock_guard<std::mutex> guard(cache_mutex_);
   cache_.cache_expr_table_computations_[expr] = computations_done_by.table_of_computations_;
 
   return computations_done_by.table_of_computations_;
@@ -318,6 +321,7 @@ ComputationTable ComputationsDoneBy::GetComputationsDoneBy(
   computations_done_by.VisitStmt(stmt);
   // Copy the `table_of_computations_` that `computations_done_by` has computed into the cache
   // for the future queries
+  std::lock_guard<std::mutex> guard(cache_mutex_);
   cache_.cache_stmt_table_computations_[stmt] = computations_done_by.table_of_computations_;
 
   return computations_done_by.table_of_computations_;
@@ -447,6 +451,7 @@ void ComputationsDoneBy::VisitStmt_(const IfThenElseNode* op) {
 
   // Copy the `table_of_computations_` into the cache
   // for the future queries
+  std::lock_guard<std::mutex> guard(cache_mutex_);
   Stmt ref_to_op = GetRef<Stmt>(op);
   cache_.cache_stmt_table_computations_[ref_to_op] = table_of_computations_;
 }
@@ -482,6 +487,7 @@ void ComputationsDoneBy::VisitStmt_(const ForNode* op) {
 
   // Copy the `table_of_computations_` into the cache
   // for the future queries
+  std::lock_guard<std::mutex> guard(cache_mutex_);
   Stmt ref_to_op = GetRef<Stmt>(op);
   cache_.cache_stmt_table_computations_[ref_to_op] = table_of_computations_;
 }
@@ -512,6 +518,7 @@ void ComputationsDoneBy::VisitStmt_(const WhileNode* op) {
 
   // Copy the `table_of_computations_` into the cache
   // for the future queries
+  std::lock_guard<std::mutex> guard(cache_mutex_);
   Stmt ref_to_op = GetRef<Stmt>(op);
   cache_.cache_stmt_table_computations_[ref_to_op] = table_of_computations_;
 }
@@ -536,6 +543,7 @@ ComputationTable ComputationsDoneBy::ComputationsDoneByChildrenOf(
   // Now we can copy `table_of_computations_` into the cache for the future queries
   // Note : in the table, the computations done by `expr` is set to the computations done by its
   // children, because otherwise we would not have needed to compute them.
+  std::lock_guard<std::mutex> guard(cache_mutex_);
   cache_.cache_expr_table_computations_[expr] = computations_done_by.table_of_computations_;
 
   return computations_done_by.table_of_computations_;
@@ -561,6 +569,7 @@ ComputationTable ComputationsDoneBy::ComputationsDoneByChildrenOf(
   // So now we can copy table_of_computations_ into the cache for the future queries
   // Note : in the table, the computations done by `stmt` is set to the computations done by its
   // children, because that's exactly what we mean by "the computations of a statement".
+  std::lock_guard<std::mutex> guard(cache_mutex_);
   cache_.cache_stmt_table_computations_[stmt] = computations_done_by.table_of_computations_;
 
   return computations_done_by.table_of_computations_;
